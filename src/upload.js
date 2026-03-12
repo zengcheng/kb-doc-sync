@@ -176,7 +176,8 @@ async function uploadFile(filePath, parentPageId, options = {}) {
 
   let pageId;
 
-  if (targetPageId && update) {
+  if (targetPageId) {
+    // 有 pageId → 识别为已有页面，直接更新
     try {
       const existingInfo = await getPageInfo(targetPageId);
       const version = existingInfo.version.number;
@@ -191,19 +192,25 @@ async function uploadFile(filePath, parentPageId, options = {}) {
       console.log(`✅ 已创建: [${title}] (id=${pageId})`);
     }
   } else {
+    // 无 pageId → 识别为新页面
+    // 先查重：检查父页面下是否已有同名子页面
     const existing = await findChildPage(parentPageId, title);
 
     if (existing) {
       if (update) {
+        // 同名已存在 + --update → 更新该页面
         const version = existing.version.number;
         const result = await updatePage(existing.id, title, contentHtml, version);
         pageId = result.id;
-        console.log(`✅ 已更新: [${title}] (id=${pageId}, v${version + 1})`);
+        console.log(`✅ 已更新同名页面: [${title}] (id=${pageId}, v${version + 1})`);
       } else {
-        console.log(`⏭️  跳过（已存在）: [${title}] (id=${existing.id})`);
+        // 同名已存在 + 未指定 --update → 跳过，防止意外覆盖
+        console.log(`⏭️  跳过（同名页面已存在）: [${title}] (id=${existing.id})`);
+        console.log(`   如需更新，请加 --update 参数`);
         return existing;
       }
     } else {
+      // 无同名页面 → 创建新页面
       const result = await createPage(spaceKey, parentPageId, title, contentHtml);
       pageId = result.id;
       console.log(`✅ 已创建: [${title}] (id=${pageId})`);
