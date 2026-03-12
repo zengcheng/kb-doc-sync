@@ -130,6 +130,34 @@ node cli.js push --parent-page-id 495131888 guide.md
 
 > 💡 如果父页面下已有同名页面，且未加 `--update`，则会**跳过**。加上 `--update` 则会**覆盖更新**。
 
+## AI Agent 自然语言使用
+
+本工具已发布为 AI Agent Skill，支持通过自然语言直接操作。以下是实际使用案例：
+
+**下载文档：**
+
+> 用户：帮我下载这篇 KB 文档 https://kb.cvte.com/pages/viewpage.action?pageId=495131893
+
+AI Agent 自动执行 `pull` 命令，将页面及子页面提取为本地 Markdown。
+
+**修改后同步回 KB：**
+
+> 用户：我修改了本地的 1201.供应商入场相关.md，帮我同步回 KB
+
+AI Agent 读取 frontmatter 中的 pageId，自动执行 `push --update`。
+
+**本地新建文档上传到 KB：**
+
+> 用户：把 /path/to/my-guide.md 上传到 https://kb.cvte.com/pages/viewpage.action?pageId=495131888 下面
+
+AI Agent 解析出父页面 ID，执行 `push` 创建新子页面。
+
+**批量下载空间文档：**
+
+> 用户：帮我把 KB 上 ITKB 空间的「运维手册」页面及其所有子文档都下载下来
+
+AI Agent 解析链接，递归提取整棵文档树。
+
 ## 命令参考
 
 ### Pull 命令
