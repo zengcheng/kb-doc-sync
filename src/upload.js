@@ -7,37 +7,9 @@ const os = require("os");
 const { apiGet, apiPost, apiPut, uploadAttachment } = require("./api");
 const { getBaseUrl } = require("./auth");
 const { markdownToConfluence } = require("./converter/md-to-storage");
-const { formatDateTime } = require("./utils");
+const { formatDateTime, parseFrontmatter } = require("./utils");
 
-/**
- * 解析 YAML frontmatter
- * 简单实现，不依赖额外库
- */
-function parseFrontmatter(content) {
-  const match = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
-  if (!match) {
-    return { metadata: {}, body: content };
-  }
 
-  const yamlStr = match[1];
-  const body = match[2];
-  const metadata = {};
-
-  for (const line of yamlStr.split("\n")) {
-    const colonIdx = line.indexOf(":");
-    if (colonIdx === -1) continue;
-    const key = line.substring(0, colonIdx).trim();
-    let value = line.substring(colonIdx + 1).trim();
-    // 去掉引号
-    if ((value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'"))) {
-      value = value.slice(1, -1);
-    }
-    metadata[key] = value;
-  }
-
-  return { metadata, body };
-}
 
 /**
  * 从 Markdown 内容中提取页面标题
@@ -217,18 +189,12 @@ async function uploadFile(filePath, parentPageId, options = {}) {
     const existing = await findChildPage(parentPageId, title);
 
     if (existing) {
-      if (update) {
-        // 同名已存在 + --update → 更新该页面
-        const version = existing.version.number;
-        const result = await updatePage(existing.id, title, contentHtml, version);
-        pageId = result.id;
-        console.log(`✅ 已更新同名页面: [${title}] (id=${pageId}, v${version + 1})`);
-      } else {
-        // 同名已存在 + 未指定 --update → 跳过，防止意外覆盖
-        console.log(`⏭️  跳过（同名页面已存在）: [${title}] (id=${existing.id})`);
-        console.log(`   如需更新，请加 --update 参数`);
-        return existing;
-      }
+      // 同名页面已存在，但本文件无 pageId，无法确认是否为同一页面
+      // 不覆盖，避免误更新其他页面
+      console.log(`❌ 父页面下已存在同名页面: [${title}] (id=${existing.id})`);
+      console.log(`   本文件无 pageId，无法确认是否为同一页面，已跳过`);
+      console.log(`   如需更新该页面，请在 frontmatter 中添加 pageId: "${existing.id}"`);
+      return existing;
     } else {
       // 无同名页面 → 创建新页面
       const result = await createPage(spaceKey, parentPageId, title, contentHtml);
@@ -368,5 +334,4 @@ function writeBackFrontmatter(filePath, pageId, spaceKey) {
 
 module.exports = {
   uploadFile,
-  parseFrontmatter,
 };

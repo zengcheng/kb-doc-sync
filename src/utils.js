@@ -81,10 +81,41 @@ function formatDateTime(isoString) {
   }
 }
 
+/**
+ * 解析 YAML frontmatter
+ * 简单实现，不依赖额外库
+ */
+function parseFrontmatter(content) {
+  const match = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+  if (!match) {
+    return { metadata: {}, body: content };
+  }
+
+  const yamlStr = match[1];
+  const body = match[2];
+  const metadata = {};
+
+  for (const line of yamlStr.split("\n")) {
+    const colonIdx = line.indexOf(":");
+    if (colonIdx === -1) continue;
+    const key = line.substring(0, colonIdx).trim();
+    let value = line.substring(colonIdx + 1).trim();
+    // 去掉引号
+    if ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    metadata[key] = value;
+  }
+
+  return { metadata, body };
+}
+
 module.exports = {
   askQuestion,
   sanitizeFilename,
   parallelLimit,
   downloadFile,
   formatDateTime,
+  parseFrontmatter,
 };

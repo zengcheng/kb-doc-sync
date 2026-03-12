@@ -3,7 +3,7 @@
  */
 const fs = require("fs");
 const path = require("path");
-const { sanitizeFilename, parallelLimit, downloadFile, formatDateTime } = require("./utils");
+const { sanitizeFilename, parallelLimit, downloadFile, formatDateTime, parseFrontmatter } = require("./utils");
 const { getBaseUrl } = require("./auth");
 const { httpGet, apiGet } = require("./api");
 const { htmlToMarkdown, collectImageRefs } = require("./converter/html-to-md");
@@ -12,6 +12,45 @@ const CONCURRENCY = 5;
 
 let visited = new Set();
 let docIndex = [];
+let existingPageMap = new Map(); // pageId → 已有文件绝对路径
+
+/**
+ * 递归扫描目录下所有 .md 文件，建立 pageId → 文件路径 映射
+ * 用于 pull 时优先覆盖已有文件
+ */
+function scanExistingFiles(dir) {
+  const map = new Map();
+  const SKIP_DIRS = new Set(["node_modules", ".git", ".github", ".vscode"]);
+
+  function walk(currentDir) {
+    let entries;
+    try {
+      entries = fs.readdirSync(currentDir, { withFileTypes: true });
+    } catch (_) {
+      return;
+    }
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        if (!SKIP_DIRS.has(entry.name)) {
+          walk(path.join(currentDir, entry.name));
+        }
+      } else if (entry.isFile() && entry.name.endsWith(".md")) {
+        try {
+          const content = fs.readFileSync(path.join(currentDir, entry.name), "utf-8");
+          const { metadata } = parseFrontmatter(content);
+          if (metadata.pageId) {
+            map.set(String(metadata.pageId), path.join(currentDir, entry.name));
+          }
+        } catch (_) {
+          // 读取失败跳过
+        }
+      }
+    }
+  }
+
+  walk(dir);
+  return map;
+}
 
 /**
  * 获取某个页面的所有直接子页面（支持分页）
@@ -135,9 +174,15 @@ async function crawlPage(pageId, depth = 0, parentPath = "", outputBase = "") {
 
   let pageDir, filePath;
   const base = outputBase || parentPath;
-  const resourceDir = base;
+  let resourceDir = base;
 
-  if (depth === 0) {
+  // 优先匹配已有文件：扫描到的 pageId → 文件路径
+  if (existingPageMap.has(String(pageId))) {
+    filePath = existingPageMap.get(String(pageId));
+    pageDir = path.dirname(filePath);
+    resourceDir = pageDir;
+    console.log(`${indent}   🔄 匹配到已有文件: ${filePath}`);
+  } else if (depth === 0) {
     pageDir = parentPath;
     filePath = path.join(pageDir, `${pageDirName}.md`);
   } else if (hasChildren) {
@@ -406,6 +451,15 @@ async function extractPage(pageId, skipConfirm = false) {
   // 重置状态
   visited = new Set();
   docIndex = [];
+
+  // 扫描当前目录下已有的 md 文件，建立 pageId 映射
+  console.log("🔍 扫描本地已有文档...");
+  existingPageMap = scanExistingFiles(process.cwd());
+  if (existingPageMap.size > 0) {
+    console.log(`   找到 ${existingPageMap.size} 个含 pageId 的文档\n`);
+  } else {
+    console.log(`   未找到已有文档\n`);
+  }
 
   const sanitizedTitle = sanitizeFilename(title);
   const outputBase = path.join(OUTPUT_DIR, sanitizedTitle);
