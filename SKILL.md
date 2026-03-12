@@ -33,25 +33,25 @@ description: KB（Confluence）知识库双向同步工具。支持从 KB 提取
 
 ```bash
 # 通过 pageId 链接提取
-npx git@github.com:zengcheng/confluence-doc-extractor.git pull "https://kb.cvte.com/pages/viewpage.action?pageId=123456"
+npx git@github.com:zengcheng/kb-doc-sync.git pull "https://kb.cvte.com/pages/viewpage.action?pageId=123456"
 
 # 通过 display 格式链接提取
-npx git@github.com:zengcheng/confluence-doc-extractor.git pull "https://kb.cvte.com/display/SPACE/Page+Title"
+npx git@github.com:zengcheng/kb-doc-sync.git pull "https://kb.cvte.com/display/SPACE/Page+Title"
 
 # 交互模式
-npx git@github.com:zengcheng/confluence-doc-extractor.git
+npx git@github.com:zengcheng/kb-doc-sync.git
 ```
 
 ### Push — 上传文档
 
 ```bash
 # 上传 Markdown 到指定父页面下
-npx git@github.com:zengcheng/confluence-doc-extractor.git push \
+npx git@github.com:zengcheng/kb-doc-sync.git push \
   --parent-page-id 123456 \
   docs/my-doc.md
 
 # 更新已有同名页面
-npx git@github.com:zengcheng/confluence-doc-extractor.git push \
+npx git@github.com:zengcheng/kb-doc-sync.git push \
   --parent-page-id 123456 \
   --update \
   docs/my-doc.md
