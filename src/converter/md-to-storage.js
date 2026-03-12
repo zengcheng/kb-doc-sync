@@ -1,6 +1,5 @@
 /**
  * Markdown → Confluence Storage Format 转换器
- * 参考 Python 版 upload_to_kb.py 的 markdown_to_confluence() 实现
  * 使用 marked 库将 Markdown 转为 HTML，再适配 Confluence 格式
  */
 const https = require("https");

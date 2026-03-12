@@ -1,6 +1,5 @@
 /**
  * 上传模块 —— 将本地 Markdown 文档上传到 Confluence
- * 参考 Python 版 upload_to_kb.py 实现
  */
 const fs = require("fs");
 const path = require("path");

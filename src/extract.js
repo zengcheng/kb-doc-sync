@@ -1,6 +1,5 @@
 /**
  * 提取模块 —— 从 KB（Confluence）递归提取文档并转为 Markdown
- * 重构自 crawl.js，增加 YAML frontmatter 元数据
  */
 const fs = require("fs");
 const path = require("path");

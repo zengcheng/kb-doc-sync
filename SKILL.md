@@ -47,12 +47,12 @@ npx git@github.com:zengcheng/confluence-doc-extractor.git
 ```bash
 # 上传 Markdown 到指定父页面下
 npx git@github.com:zengcheng/confluence-doc-extractor.git push \
-  --parent-page-id 540734829 \
+  --parent-page-id 123456 \
   docs/my-doc.md
 
 # 更新已有同名页面
 npx git@github.com:zengcheng/confluence-doc-extractor.git push \
-  --parent-page-id 540734829 \
+  --parent-page-id 123456 \
   --update \
   docs/my-doc.md
 ```

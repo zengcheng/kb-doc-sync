@@ -1,6 +1,5 @@
 /**
  * Confluence Storage Format HTML → Markdown 转换器
- * 从 crawl.js 提取，无逻辑变更
  */
 
 /**
