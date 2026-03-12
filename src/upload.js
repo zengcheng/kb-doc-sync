@@ -250,8 +250,51 @@ async function uploadFile(filePath, parentPageId, options = {}) {
   const pageUrl = `${getBaseUrl()}/pages/viewpage.action?pageId=${pageId}`;
   console.log(`   🔗 ${pageUrl}`);
 
-  // 回写 frontmatter 到本地文件（确保后续 push 能识别为"更新"）
-  writeBackFrontmatter(filePath, pageId, spaceKey);
+  // 整理本地图片：移到 images/{pageId}/ 目录，并更新 Markdown 中的引用路径
+  let updatedContent = null;
+  if (localImages.length > 0) {
+    const validImages = localImages.filter((img) => fs.existsSync(img.absolutePath));
+    if (validImages.length > 0) {
+      const imgTargetDir = path.join(mdDir, "images", String(pageId));
+      if (!fs.existsSync(imgTargetDir)) {
+        fs.mkdirSync(imgTargetDir, { recursive: true });
+      }
+
+      let content = fs.readFileSync(filePath, "utf-8");
+      let movedCount = 0;
+
+      for (const img of validImages) {
+        const targetPath = path.join(imgTargetDir, img.filename);
+        // 如果图片已经在目标目录，跳过
+        if (path.resolve(img.absolutePath) === path.resolve(targetPath)) continue;
+
+        try {
+          fs.copyFileSync(img.absolutePath, targetPath);
+          fs.unlinkSync(img.absolutePath);
+
+          // 更新 Markdown 中的引用路径
+          const decodedSrc = decodeURIComponent(img.src);
+          const newRelPath = `images/${pageId}/${img.filename}`;
+          // 同时替换编码和非编码形式的引用
+          content = content.split(img.src).join(newRelPath);
+          if (img.src !== decodedSrc) {
+            content = content.split(decodedSrc).join(newRelPath);
+          }
+          movedCount++;
+        } catch (e) {
+          console.log(`    ⚠️ 移动 ${img.filename} 失败: ${e.message}`);
+        }
+      }
+
+      if (movedCount > 0) {
+        updatedContent = content;
+        console.log(`📂 已整理 ${movedCount} 个图片到 images/${pageId}/`);
+      }
+    }
+  }
+
+  // 回写 frontmatter + 图片路径更新，统一一次写入
+  writeBackFrontmatter(filePath, pageId, spaceKey, updatedContent);
 
   return { id: pageId, title };
 }
@@ -293,8 +336,10 @@ function collectLocalImages(html, mdDir) {
     if (seen.has(src)) continue;
     seen.add(src);
 
-    const absolutePath = path.resolve(mdDir, src);
-    const filename = path.basename(src);
+    // marked 会将中文文件名 URL 编码，需解码后才能匹配本地文件
+    const decodedSrc = decodeURIComponent(src);
+    const absolutePath = path.resolve(mdDir, decodedSrc);
+    const filename = path.basename(decodedSrc);
     images.push({ src, filename, absolutePath });
   }
   return images;
@@ -304,10 +349,11 @@ function collectLocalImages(html, mdDir) {
  * 回写 frontmatter 到本地 Markdown 文件
  * push 成功后调用，确保本地文件包含 pageId 和 spaceKey，
  * 这样后续再次 push 时能直接走"更新已有页面"逻辑
+ * @param {string|null} preUpdatedContent - 如果图片整理已更新了内容，传入避免重复读文件
  */
-function writeBackFrontmatter(filePath, pageId, spaceKey) {
+function writeBackFrontmatter(filePath, pageId, spaceKey, preUpdatedContent = null) {
   try {
-    const content = fs.readFileSync(filePath, "utf-8");
+    const content = preUpdatedContent || fs.readFileSync(filePath, "utf-8");
     const { metadata, body } = parseFrontmatter(content);
 
     // 更新关键字段
