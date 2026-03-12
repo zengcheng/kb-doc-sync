@@ -37,7 +37,7 @@ Push 命令：
   node cli.js push --parent-page-id <id> [--update] <file1.md> [file2.md ...]
 
 Push 选项：
-  --parent-page-id <id>   父页面 ID（必填）
+  --parent-page-id <id>   父页面 ID（创建新页面时必填）
   --update                同名页面已存在时更新内容
   --base-url <url>        KB 地址，默认 https://kb.cvte.com
 

@@ -7,6 +7,7 @@ const os = require("os");
 const { apiGet, apiPost, apiPut, uploadAttachment } = require("./api");
 const { getBaseUrl } = require("./auth");
 const { markdownToConfluence } = require("./converter/md-to-storage");
+const { formatDateTime } = require("./utils");
 
 /**
  * 解析 YAML frontmatter
@@ -147,8 +148,16 @@ async function uploadFile(filePath, parentPageId, options = {}) {
   const title = extractTitle(body, filePath);
 
   // 确定目标 pageId（从 frontmatter 中读取）
-  const targetPageId = metadata.pageId || null;
+  let targetPageId = metadata.pageId || null;
   const targetSpaceKey = metadata.spaceKey || null;
+
+  // 冲突检测：frontmatter pageId 与 --parent-page-id 相同时，
+  // 说明用户想在该页面下创建子页面，忽略 frontmatter pageId，避免覆盖父页面
+  if (targetPageId && parentPageId && String(targetPageId) === String(parentPageId)) {
+    console.log(`⚠️  frontmatter 中的 pageId (${targetPageId}) 与 --parent-page-id 相同`);
+    console.log(`   将忽略 frontmatter pageId，在父页面下创建子页面`);
+    targetPageId = null;
+  }
 
   // 没有 frontmatter pageId 时，必须提供 parentPageId
   if (!targetPageId && !parentPageId) {
@@ -275,6 +284,9 @@ async function uploadFile(filePath, parentPageId, options = {}) {
   const pageUrl = `${getBaseUrl()}/pages/viewpage.action?pageId=${pageId}`;
   console.log(`   🔗 ${pageUrl}`);
 
+  // 回写 frontmatter 到本地文件（确保后续 push 能识别为"更新"）
+  writeBackFrontmatter(filePath, pageId, spaceKey);
+
   return { id: pageId, title };
 }
 
@@ -320,6 +332,38 @@ function collectLocalImages(html, mdDir) {
     images.push({ src, filename, absolutePath });
   }
   return images;
+}
+
+/**
+ * 回写 frontmatter 到本地 Markdown 文件
+ * push 成功后调用，确保本地文件包含 pageId 和 spaceKey，
+ * 这样后续再次 push 时能直接走"更新已有页面"逻辑
+ */
+function writeBackFrontmatter(filePath, pageId, spaceKey) {
+  try {
+    const content = fs.readFileSync(filePath, "utf-8");
+    const { metadata, body } = parseFrontmatter(content);
+
+    // 更新关键字段
+    metadata.pageId = String(pageId);
+    metadata.spaceKey = spaceKey || metadata.spaceKey || "";
+    metadata.lastModified = formatDateTime(new Date().toISOString());
+
+    // 只保留有用的字段
+    const lines = [
+      "---",
+      `pageId: "${metadata.pageId}"`,
+      `spaceKey: "${metadata.spaceKey}"`,
+      `lastModified: "${metadata.lastModified}"`,
+      "---",
+    ];
+
+    const newContent = lines.join("\n") + "\n" + body;
+    fs.writeFileSync(filePath, newContent, "utf-8");
+    console.log(`📝 已回写 frontmatter 到本地文件 (pageId=${pageId})`);
+  } catch (e) {
+    console.log(`⚠️ 回写 frontmatter 失败: ${e.message}`);
+  }
 }
 
 module.exports = {
