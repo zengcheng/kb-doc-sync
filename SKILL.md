@@ -83,19 +83,17 @@ spaceKey: "ITKB"
 
 ### Step 3A：上传已有文档（更新到 KB）
 
-文件的 frontmatter 中**有 pageId**，说明文档是之前从 KB 下载的。
+文件的 frontmatter 中**有 pageId**，说明文档是之前从 KB 下载的。**不需要 `--parent-page-id`**，直接传文件即可。
 
 **执行命令**：
 ```bash
-npx git@github.com:zengcheng/kb-doc-sync.git push --parent-page-id <frontmatter中的pageId> <文件绝对路径>
+npx git@github.com:zengcheng/kb-doc-sync.git push <文件绝对路径>
 ```
-
-**参数说明**：`--parent-page-id` 的值就是 frontmatter 中的 `pageId` 字段。
 
 **完整示例**：
 - 用户说：「帮我把 docs/运维手册.md 同步回 KB」
 - 你读取文件，发现 frontmatter 中 `pageId: "495131893"`
-- 执行：`npx git@github.com:zengcheng/kb-doc-sync.git push --parent-page-id 495131893 /Users/xxx/docs/运维手册.md`
+- 执行：`npx git@github.com:zengcheng/kb-doc-sync.git push /Users/xxx/docs/运维手册.md`
 
 ---
 
@@ -135,6 +133,6 @@ npx git@github.com:zengcheng/kb-doc-sync.git push --parent-page-id <父页面ID>
 | 操作 | 命令 |
 |------|------|
 | 下载 | `npx git@github.com:zengcheng/kb-doc-sync.git pull "<KB链接>"` |
-| 更新已有页面 | `npx git@github.com:zengcheng/kb-doc-sync.git push --parent-page-id <pageId> <file>` |
-| 创建新页面 | `npx git@github.com:zengcheng/kb-doc-sync.git push --parent-page-id <父页面ID> <file>` |
+| 更新已有页面（有 pageId） | `npx git@github.com:zengcheng/kb-doc-sync.git push <file>` |
+| 创建新页面（无 pageId） | `npx git@github.com:zengcheng/kb-doc-sync.git push --parent-page-id <父页面ID> <file>` |
 | 强制覆盖同名 | `npx git@github.com:zengcheng/kb-doc-sync.git push --parent-page-id <父页面ID> --update <file>` |

@@ -135,12 +135,6 @@ async function handlePull(input, skipConfirm = false) {
  * 处理 push 命令
  */
 async function handlePush(pushArgs) {
-  if (!pushArgs.parentPageId) {
-    console.log("❌ 缺少 --parent-page-id 参数");
-    console.log("   用法: node cli.js push --parent-page-id <id> <file.md>");
-    return;
-  }
-
   if (pushArgs.files.length === 0) {
     console.log("❌ 缺少要上传的文件");
     console.log("   用法: node cli.js push --parent-page-id <id> <file.md>");

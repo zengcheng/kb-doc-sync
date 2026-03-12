@@ -150,12 +150,23 @@ async function uploadFile(filePath, parentPageId, options = {}) {
   const targetPageId = metadata.pageId || null;
   const targetSpaceKey = metadata.spaceKey || null;
 
-  // 获取父页面信息
-  const parentInfo = await getPageInfo(parentPageId);
-  const spaceKey = targetSpaceKey || parentInfo.space.key;
-  const parentTitle = parentInfo.title;
-  console.log(`📁 父页面: [${parentTitle}] (space=${spaceKey})`);
+  // 没有 frontmatter pageId 时，必须提供 parentPageId
+  if (!targetPageId && !parentPageId) {
+    throw new Error("文件无 frontmatter pageId，必须通过 --parent-page-id 指定父页面");
+  }
 
+  // 获取父页面信息（用于 spaceKey 以及创建新页面时的定位）
+  let spaceKey = targetSpaceKey;
+  if (parentPageId) {
+    const parentInfo = await getPageInfo(parentPageId);
+    spaceKey = spaceKey || parentInfo.space.key;
+    console.log(`📁 父页面: [${parentInfo.title}] (space=${spaceKey})`);
+  } else if (targetPageId) {
+    // 无 parentPageId 但有 targetPageId → 从目标页面获取 spaceKey
+    const pageInfo = await getPageInfo(targetPageId);
+    spaceKey = spaceKey || pageInfo.space.key;
+    console.log(`📁 目标页面: [${pageInfo.title}] (space=${spaceKey})`);
+  }
   // 转换 Markdown → Confluence Storage Format（先移除标题行，避免与 KB 页面标题重复）
   const bodyWithoutTitle = stripTitleFromBody(body, title);
   let { html: contentHtml, mermaidImages } = await markdownToConfluence(bodyWithoutTitle);
