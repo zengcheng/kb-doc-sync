@@ -39,12 +39,12 @@ description: KB（Confluence）知识库双向同步工具。支持从 KB 下载
 
 **执行命令**：
 ```bash
-node cli.js pull "用户给的KB链接"
+npx git@github.com:zengcheng/kb-doc-sync.git pull "用户给的KB链接"
 ```
 
 **完整示例**：
 - 用户说：「下载 https://kb.cvte.com/pages/viewpage.action?pageId=123456」
-- 执行：`node cli.js pull "https://kb.cvte.com/pages/viewpage.action?pageId=123456"`
+- 执行：`npx git@github.com:zengcheng/kb-doc-sync.git pull "https://kb.cvte.com/pages/viewpage.action?pageId=123456"`
 
 **到这里就完成了，无需继续。**
 
@@ -85,7 +85,7 @@ spaceKey: "ITKB"
 
 **执行命令**：
 ```bash
-node cli.js push --parent-page-id <frontmatter中的pageId> <文件路径>
+npx git@github.com:zengcheng/kb-doc-sync.git push --parent-page-id <frontmatter中的pageId> <文件路径>
 ```
 
 **参数说明**：`--parent-page-id` 的值就是 frontmatter 中的 `pageId` 字段。
@@ -93,7 +93,7 @@ node cli.js push --parent-page-id <frontmatter中的pageId> <文件路径>
 **完整示例**：
 - 用户说：「帮我把 docs/运维手册.md 同步回 KB」
 - 你读取文件，发现 frontmatter 中 `pageId: "495131893"`
-- 执行：`node cli.js push --parent-page-id 495131893 docs/运维手册.md`
+- 执行：`npx git@github.com:zengcheng/kb-doc-sync.git push --parent-page-id 495131893 docs/运维手册.md`
 
 ---
 
@@ -110,19 +110,18 @@ node cli.js push --parent-page-id <frontmatter中的pageId> <文件路径>
 
 **执行命令**：
 ```bash
-node cli.js push --parent-page-id <父页面ID> <文件路径>
+npx git@github.com:zengcheng/kb-doc-sync.git push --parent-page-id <父页面ID> <文件路径>
 ```
 
 **完整示例**：
 - 用户说：「把 /tmp/guide.md 上传到 https://kb.cvte.com/pages/viewpage.action?pageId=495131888 下面」
 - 从 URL 提取父页面 ID = `495131888`
-- 执行：`node cli.js push --parent-page-id 495131888 /tmp/guide.md`
+- 执行：`npx git@github.com:zengcheng/kb-doc-sync.git push --parent-page-id 495131888 /tmp/guide.md`
 
 **注意**：如果父页面下已有同名子页面，命令会跳过。加 `--update` 可强制覆盖。
 
-## 工作目录
 
-所有命令必须在本工具的安装目录下执行（即 `cli.js` 所在目录）。
+
 
 ## 前置条件
 
@@ -136,7 +135,7 @@ node cli.js push --parent-page-id <父页面ID> <文件路径>
 
 | 操作 | 命令 |
 |------|------|
-| 下载 | `node cli.js pull "<KB链接>"` |
-| 更新已有页面 | `node cli.js push --parent-page-id <pageId> <file>` |
-| 创建新页面 | `node cli.js push --parent-page-id <父页面ID> <file>` |
-| 强制覆盖同名 | `node cli.js push --parent-page-id <父页面ID> --update <file>` |
+| 下载 | `npx git@github.com:zengcheng/kb-doc-sync.git pull "<KB链接>"` |
+| 更新已有页面 | `npx git@github.com:zengcheng/kb-doc-sync.git push --parent-page-id <pageId> <file>` |
+| 创建新页面 | `npx git@github.com:zengcheng/kb-doc-sync.git push --parent-page-id <父页面ID> <file>` |
+| 强制覆盖同名 | `npx git@github.com:zengcheng/kb-doc-sync.git push --parent-page-id <父页面ID> --update <file>` |
