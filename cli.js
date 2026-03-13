@@ -176,6 +176,19 @@ async function handlePush(pushArgs) {
 async function main() {
   const args = process.argv.slice(2);
 
+  // MCP Server 模式：必须在任何 stdout 输出之前启动，避免污染 stdio 协议
+  if (args[0] === "mcp") {
+    const { spawn } = require("child_process");
+    const mcpServerPath = path.join(__dirname, "mcp-server.mjs");
+    const child = spawn(process.execPath, [mcpServerPath], {
+      stdio: "inherit",
+      env: process.env,
+    });
+    child.on("exit", (code) => process.exit(code || 0));
+    await new Promise(() => {});
+    return;
+  }
+
   // 帮助信息
   if (args.includes("--help") || args.includes("-h")) {
     showHelp();

@@ -176,6 +176,31 @@ function resetAuth() {
   authMode = null;
 }
 
+/**
+ * 直接注入 Token 认证（供 MCP Server 使用）
+ * @param {string} tokenValue - Bearer Token 值
+ */
+function initTokenAuth(tokenValue) {
+  token = tokenValue;
+  authMode = "token";
+}
+
+/**
+ * 直接注入 Cookie 认证（供 MCP Server 使用）
+ * @param {string} cookieString - Cookie 字符串
+ */
+function initCookieAuth(cookieString) {
+  cookies = cookieString;
+  authMode = "cookie";
+}
+
+/**
+ * 检查是否已有有效的认证凭据
+ */
+function isAuthenticated() {
+  return !!(authMode && (token || cookies));
+}
+
 module.exports = {
   getBaseUrl,
   setBaseUrl,
@@ -185,4 +210,7 @@ module.exports = {
   ensureLogin,
   tryInitToken,
   resetAuth,
+  initTokenAuth,
+  initCookieAuth,
+  isAuthenticated,
 };

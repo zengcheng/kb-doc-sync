@@ -4,20 +4,33 @@
   "description": "KB（Confluence）知识库双向同步工具：提取文档为 Markdown / 上传 Markdown 到 KB",
   "main": "cli.js",
   "bin": {
-    "kb-doc-sync": "./cli.js"
+    "kb-doc-sync": "./cli.js",
+    "kb-doc-sync-mcp": "./mcp-server.mjs"
   },
   "scripts": {
     "start": "node cli.js",
     "pull": "node cli.js pull",
     "push": "node cli.js push",
+    "mcp": "node mcp-server.mjs",
     "postinstall": "npx playwright install chromium"
   },
-  "keywords": ["confluence", "markdown", "docs", "sync", "upload", "extract"],
+  "keywords": [
+    "confluence",
+    "markdown",
+    "docs",
+    "sync",
+    "upload",
+    "extract",
+    "mcp",
+    "ai-agent"
+  ],
   "author": "zengcheng",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
     "marked": "^15.0.0",
-    "playwright": "^1.58.2"
+    "playwright": "^1.58.2",
+    "zod": "^4.3.6"
   }
 }

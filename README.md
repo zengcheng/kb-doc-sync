@@ -119,6 +119,43 @@ npx git@github.com:zengcheng/kb-doc-sync.git push --parent-page-id 123456 /path/
 
 > 「把 /path/to/guide.md 上传到 https://kb.cvte.com/pages/viewpage.action?pageId=123456 下面」
 
+## MCP Server 模式
+
+本工具同时支持 [MCP（Model Context Protocol）](https://modelcontextprotocol.io) 协议，可作为 MCP Server 被 AI Agent 原生调用。
+
+### 快速配置
+
+在 Claude Desktop 或 IDE 的 MCP 设置中添加：
+
+```json
+{
+  "mcpServers": {
+    "kb-doc-sync": {
+      "command": "node",
+      "args": ["/path/to/confluence-doc-extractor/mcp-server.mjs"],
+      "env": {
+        "KB_TOKEN": "your-bearer-token"
+      }
+    }
+  }
+}
+```
+
+> ⚠️ MCP 模式仅支持 Token 认证（`KB_TOKEN` 环境变量），不支持浏览器登录。
+
+### 提供的 Tools
+
+| Tool | 说明 | 关键参数 |
+|------|------|---------|
+| `kb_pull` | 下载 KB 页面为 Markdown | `url`（必填）KB 页面链接 |
+| `kb_push` | 上传 Markdown 到 KB | `files`（必填）文件路径列表，`parentPageId`（可选）父页面 ID |
+
+### 本地调试
+
+```bash
+KB_TOKEN="your-token" npm run mcp
+```
+
 ## 命令参考
 
 | 操作 | 命令 |
