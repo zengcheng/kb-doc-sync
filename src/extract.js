@@ -137,10 +137,12 @@ async function getAttachments(pageId) {
  * 生成 YAML frontmatter
  */
 function buildFrontmatter(pageId, pageData) {
+  const baseUrl = getBaseUrl();
   const lines = [
     "---",
     `pageId: "${pageId}"`,
     `spaceKey: "${pageData.spaceKey}"`,
+    `sourceUrl: "${baseUrl}/pages/viewpage.action?pageId=${pageId}"`,
     `lastModified: "${formatDateTime(pageData.lastModified)}"`,
     "---",
     "",

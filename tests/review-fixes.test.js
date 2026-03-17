@@ -40,7 +40,7 @@ function testWriteBackFrontmatterPreservesMetadata() {
   assert(content.includes('pageId: "2"'));
   assert(content.includes('spaceKey: "NEW"'));
   assert(content.includes('title: "示例文档"'));
-  assert(content.includes('sourceUrl: "https://kb.example.com/page"'));
+  assert(content.includes('sourceUrl: "/pages/viewpage.action?pageId=2"'));
 }
 
 async function testFindChildPagePaginates() {

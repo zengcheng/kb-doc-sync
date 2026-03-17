@@ -383,14 +383,16 @@ function writeBackFrontmatter(filePath, pageId, spaceKey, preUpdatedContent = nu
     // 更新关键字段
     metadata.pageId = String(pageId);
     metadata.spaceKey = spaceKey || metadata.spaceKey || "";
+    metadata.sourceUrl = `${getBaseUrl()}/pages/viewpage.action?pageId=${pageId}`;
     metadata.lastModified = formatDateTime(new Date().toISOString());
 
     const orderedKeys = [
       "pageId",
       "spaceKey",
+      "sourceUrl",
       "lastModified",
       ...Object.keys(metadata).filter(
-        (key) => !["pageId", "spaceKey", "lastModified"].includes(key)
+        (key) => !["pageId", "spaceKey", "sourceUrl", "lastModified"].includes(key)
       ),
     ];
     const lines = ["---"];

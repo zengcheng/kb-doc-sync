@@ -172,13 +172,32 @@ async function handlePush(pushArgs) {
   if (pushArgs.baseUrl) {
     setBaseUrl(pushArgs.baseUrl);
   } else if (!getBaseUrl()) {
+    // 尝试从已保存的 cookie 文件中恢复 baseUrl（不做完整 cookie 加载，后续 ensureLogin 会处理）
+    try {
+      const cookieFile = path.join(process.cwd(), ".cookies.json");
+      if (fs.existsSync(cookieFile)) {
+        const saved = JSON.parse(fs.readFileSync(cookieFile, "utf-8"));
+        if (saved.baseUrl) {
+          setBaseUrl(saved.baseUrl);
+          console.log(`🔗 从本地配置恢复目标站点: ${saved.baseUrl}`);
+        }
+      }
+    } catch (_) {
+      // 读取失败不影响后续流程
+    }
+  }
+
+  if (!getBaseUrl()) {
+    // cookie 中也没有 baseUrl，尝试从文件 frontmatter 中推断
     const inferredBaseUrl = inferBaseUrlFromFiles(pushArgs.files);
     if (inferredBaseUrl) {
       setBaseUrl(inferredBaseUrl);
       console.log(`🔗 已从文档 frontmatter 推断目标站点: ${inferredBaseUrl}`);
     } else {
       console.log("❌ 缺少 KB 地址");
-      console.log("   已有文档请确保 frontmatter 中包含 sourceUrl；新文档请通过 --base-url <url> 指定，例如: https://wiki.example.com");
+      console.log("   请通过以下任一方式指定 KB 地址:");
+      console.log("   1. 先 pull 一次（会自动保存 KB 地址）");
+      console.log("   2. 使用 --base-url <url> 参数，例如: --base-url https://wiki.example.com");
       return;
     }
   }
