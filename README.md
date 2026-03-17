@@ -18,13 +18,13 @@
 
 ```bash
 # 下载 KB 文档
-npx git@github.com:zengcheng/kb-doc-sync.git pull "https://kb.cvte.com/pages/viewpage.action?pageId=123456"
+npx git@github.com:zengcheng/kb-doc-sync.git pull "https://wiki.example.com/pages/viewpage.action?pageId=123456"
 
 # 上传（更新已有页面，文件含 pageId frontmatter）
 npx git@github.com:zengcheng/kb-doc-sync.git push /path/to/doc.md
 
 # 上传（创建新页面）
-npx git@github.com:zengcheng/kb-doc-sync.git push --parent-page-id 123456 /path/to/new-doc.md
+npx git@github.com:zengcheng/kb-doc-sync.git push --base-url "https://wiki.example.com" --parent-page-id 123456 /path/to/new-doc.md
 ```
 
 > ⚠️ 首次运行会自动安装 Playwright 和 Chromium（约 150MB），用于登录获取 cookie。
@@ -40,16 +40,18 @@ npm install
 安装后可用 `node cli.js` 代替 `npx ...`：
 
 ```bash
-node cli.js pull "https://kb.cvte.com/pages/viewpage.action?pageId=123456"
+node cli.js pull "https://wiki.example.com/pages/viewpage.action?pageId=123456"
 node cli.js push docs/my-doc.md
 ```
+
+> `push` 会优先从 Markdown frontmatter 里的 `sourceUrl` 自动推断站点地址；如果是本地新建文档，请显式传 `--base-url`。
 
 ## 使用场景
 
 ### 场景一：下载 KB 文档到本地
 
 ```bash
-npx git@github.com:zengcheng/kb-doc-sync.git pull "https://kb.cvte.com/pages/viewpage.action?pageId=123456"
+npx git@github.com:zengcheng/kb-doc-sync.git pull "https://wiki.example.com/pages/viewpage.action?pageId=123456"
 ```
 
 下载后的文件结构：
@@ -71,7 +73,7 @@ docs/
 ---
 pageId: "123456"
 spaceKey: "ITKB"
-sourceUrl: "https://kb.cvte.com/pages/viewpage.action?pageId=123456"
+sourceUrl: "https://wiki.example.com/pages/viewpage.action?pageId=123456"
 title: "页面标题"
 author: "作者名"
 lastModified: "2022-05-21 11:08:19"
@@ -104,7 +106,7 @@ npx git@github.com:zengcheng/kb-doc-sync.git push /path/to/a.md /path/to/b.md
 文件**无 frontmatter** 或无 pageId → 需要通过 `--parent-page-id` 指定父页面。页面标题取自文件中第一个 `# 标题`。
 
 ```bash
-npx git@github.com:zengcheng/kb-doc-sync.git push --parent-page-id 123456 /path/to/new-doc.md
+npx git@github.com:zengcheng/kb-doc-sync.git push --base-url "https://wiki.example.com" --parent-page-id 123456 /path/to/new-doc.md
 ```
 
 > 💡 如果父页面下已有同名页面，会**跳过**。加 `--update` 可强制覆盖。
@@ -113,11 +115,11 @@ npx git@github.com:zengcheng/kb-doc-sync.git push --parent-page-id 123456 /path/
 
 本工具已发布为 AI Agent Skill，支持通过自然语言直接操作：
 
-> 「帮我下载这篇 KB 文档 https://kb.cvte.com/pages/viewpage.action?pageId=123456」
+> 「帮我下载这篇 KB 文档 https://wiki.example.com/pages/viewpage.action?pageId=123456」
 
 > 「我修改了本地的文档，帮我同步回 KB」
 
-> 「把 /path/to/guide.md 上传到 https://kb.cvte.com/pages/viewpage.action?pageId=123456 下面」
+> 「把 /path/to/guide.md 上传到 https://wiki.example.com/pages/viewpage.action?pageId=123456 下面」
 
 ## 命令参考
 
@@ -134,7 +136,7 @@ npx git@github.com:zengcheng/kb-doc-sync.git push --parent-page-id 123456 /path/
 |------|------|------|
 | `--parent-page-id <id>` | 无 pageId 时必填 | 父页面 ID |
 | `--update` | ❌ | 同名页面已存在时强制更新 |
-| `--base-url <url>` | ❌ | KB 地址，默认 `https://kb.cvte.com` |
+| `--base-url <url>` | 新建页面时必填 | KB 地址，例如 `https://wiki.example.com` |
 
 ## 认证方式
 

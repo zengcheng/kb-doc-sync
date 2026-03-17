@@ -14,7 +14,7 @@ description: KB（Confluence）知识库双向同步工具。支持从 KB 下载
 满足以下**任一条件**即可触发：
 
 - 用户提到关键词：KB、知识库、Confluence、wiki
-- 用户粘贴了含 `kb.cvte.com` 或 Confluence 实例的链接
+- 用户粘贴了 Confluence 实例链接
 - 用户要求下载/提取/导出/备份文档
 - 用户要求上传/推送/发布/同步文档到 KB
 
@@ -43,8 +43,8 @@ npx git@github.com:zengcheng/kb-doc-sync.git pull "用户给的KB链接"
 ```
 
 **完整示例**：
-- 用户说：「下载 https://kb.cvte.com/pages/viewpage.action?pageId=123456」
-- 执行：`npx git@github.com:zengcheng/kb-doc-sync.git pull "https://kb.cvte.com/pages/viewpage.action?pageId=123456"`
+- 用户说：「下载 https://wiki.example.com/pages/viewpage.action?pageId=123456」
+- 执行：`npx git@github.com:zengcheng/kb-doc-sync.git pull "https://wiki.example.com/pages/viewpage.action?pageId=123456"`
 
 **到这里就完成了，无需继续。**
 
@@ -93,6 +93,7 @@ npx git@github.com:zengcheng/kb-doc-sync.git push <文件绝对路径>
 **完整示例**：
 - 用户说：「帮我把 docs/运维手册.md 同步回 KB」
 - 你读取文件，发现 frontmatter 中 `pageId: "495131893"`
+- 你读取文件，发现 frontmatter 中 `sourceUrl` 指向目标 KB 站点
 - 执行：`npx git@github.com:zengcheng/kb-doc-sync.git push /Users/xxx/docs/运维手册.md`
 
 ---
@@ -104,19 +105,19 @@ npx git@github.com:zengcheng/kb-doc-sync.git push <文件绝对路径>
 **获取父页面 ID 的方法**（按优先级）：
 
 1. 用户给了 KB 链接 → 从 URL 中提取 pageId
-   - 例：`https://kb.cvte.com/pages/viewpage.action?pageId=495131888` → 父页面 ID = `495131888`
+   - 例：`https://wiki.example.com/pages/viewpage.action?pageId=495131888` → 父页面 ID = `495131888`
 2. 用户说了父页面 ID → 直接使用
 3. 用户什么都没给 → **必须询问**：「请提供目标父页面的链接或 ID」
 
 **执行命令**：
 ```bash
-npx git@github.com:zengcheng/kb-doc-sync.git push --parent-page-id <父页面ID> <文件绝对路径>
+npx git@github.com:zengcheng/kb-doc-sync.git push --base-url <KB地址> --parent-page-id <父页面ID> <文件绝对路径>
 ```
 
 **完整示例**：
-- 用户说：「把 /tmp/guide.md 上传到 https://kb.cvte.com/pages/viewpage.action?pageId=495131888 下面」
+- 用户说：「把 /tmp/guide.md 上传到 https://wiki.example.com/pages/viewpage.action?pageId=495131888 下面」
 - 从 URL 提取父页面 ID = `495131888`
-- 执行：`npx git@github.com:zengcheng/kb-doc-sync.git push --parent-page-id 495131888 /tmp/guide.md`
+- 执行：`npx git@github.com:zengcheng/kb-doc-sync.git push --base-url https://wiki.example.com --parent-page-id 495131888 /tmp/guide.md`
 
 **注意**：如果父页面下已有同名子页面，命令会跳过。加 `--update` 可强制覆盖。
 

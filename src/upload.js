@@ -4,9 +4,9 @@
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
-const { apiGet, apiPost, apiPut, uploadAttachment } = require("./api");
+const api = require("./api");
 const { getBaseUrl } = require("./auth");
-const { markdownToConfluence } = require("./converter/md-to-storage");
+const converter = require("./converter/md-to-storage");
 const { formatDateTime, parseFrontmatter } = require("./utils");
 
 
@@ -45,29 +45,38 @@ function stripTitleFromBody(mdBody, title) {
  * 获取页面信息
  */
 async function getPageInfo(pageId) {
-  return apiGet(`/rest/api/content/${pageId}?expand=space,version`);
+  return api.apiGet(`/rest/api/content/${pageId}?expand=space,version`);
 }
 
 /**
  * 查找同名子页面
  */
 async function findChildPage(parentId, title) {
-  const data = await apiGet(
-    `/rest/api/content/${parentId}/child/page?limit=100&expand=version`
-  );
-  for (const page of (data.results || [])) {
-    if (page.title === title) {
-      return page;
+  let start = 0;
+  const limit = 100;
+
+  while (true) {
+    const data = await api.apiGet(
+      `/rest/api/content/${parentId}/child/page?limit=${limit}&start=${start}&expand=version`
+    );
+    const results = data.results || [];
+    for (const page of results) {
+      if (page.title === title) {
+        return page;
+      }
     }
+    if (results.length < limit) {
+      return null;
+    }
+    start += limit;
   }
-  return null;
 }
 
 /**
  * 创建子页面
  */
 async function createPage(spaceKey, parentId, title, contentHtml) {
-  return apiPost("/rest/api/content", {
+  return api.apiPost("/rest/api/content", {
     type: "page",
     title,
     space: { key: spaceKey },
@@ -85,7 +94,7 @@ async function createPage(spaceKey, parentId, title, contentHtml) {
  * 更新已有页面
  */
 async function updatePage(pageId, title, contentHtml, version) {
-  return apiPut(`/rest/api/content/${pageId}`, {
+  return api.apiPut(`/rest/api/content/${pageId}`, {
     type: "page",
     title,
     version: { number: version + 1 },
@@ -96,6 +105,10 @@ async function updatePage(pageId, title, contentHtml, version) {
       },
     },
   });
+}
+
+function isNotFoundError(error) {
+  return Boolean(error && typeof error.message === "string" && error.message.startsWith("HTTP 404"));
 }
 
 /**
@@ -150,7 +163,7 @@ async function uploadFile(filePath, parentPageId, options = {}) {
   }
   // 转换 Markdown → Confluence Storage Format（先移除标题行，避免与 KB 页面标题重复）
   const bodyWithoutTitle = stripTitleFromBody(body, title);
-  let { html: contentHtml, mermaidImages } = await markdownToConfluence(bodyWithoutTitle);
+  let { html: contentHtml, mermaidImages } = await converter.markdownToConfluence(bodyWithoutTitle);
 
   // 收集本地图片引用并替换为 Confluence 附件标签
   const mdDir = path.dirname(path.resolve(filePath));
@@ -177,8 +190,10 @@ async function uploadFile(filePath, parentPageId, options = {}) {
       pageId = result.id;
       console.log(`✅ 已更新: [${title}] (id=${pageId}, v${version + 1})`);
     } catch (e) {
-      console.log(`⚠️ 无法更新 pageId=${targetPageId}: ${e.message}`);
-      console.log("  将尝试在父页面下创建新页面...");
+      if (!isNotFoundError(e) || !parentPageId) {
+        throw new Error(`无法更新 pageId=${targetPageId}: ${e.message}`);
+      }
+      console.log(`⚠️ pageId=${targetPageId} 不存在，将尝试在父页面下创建新页面...`);
       const result = await createPage(spaceKey, parentPageId, title, contentHtml);
       pageId = result.id;
       console.log(`✅ 已创建: [${title}] (id=${pageId})`);
@@ -189,12 +204,21 @@ async function uploadFile(filePath, parentPageId, options = {}) {
     const existing = await findChildPage(parentPageId, title);
 
     if (existing) {
-      // 同名页面已存在，但本文件无 pageId，无法确认是否为同一页面
-      // 不覆盖，避免误更新其他页面
-      console.log(`❌ 父页面下已存在同名页面: [${title}] (id=${existing.id})`);
-      console.log(`   本文件无 pageId，无法确认是否为同一页面，已跳过`);
-      console.log(`   如需更新该页面，请在 frontmatter 中添加 pageId: "${existing.id}"`);
-      return existing;
+      if (!update) {
+        // 同名页面已存在，但本文件无 pageId，无法确认是否为同一页面
+        // 不覆盖，避免误更新其他页面
+        console.log(`❌ 父页面下已存在同名页面: [${title}] (id=${existing.id})`);
+        console.log(`   本文件无 pageId，无法确认是否为同一页面，已跳过`);
+        console.log(`   如需更新该页面，请在 frontmatter 中添加 pageId: "${existing.id}"`);
+        return existing;
+      }
+
+      const version = existing.version && existing.version.number
+        ? existing.version.number
+        : (await getPageInfo(existing.id)).version.number;
+      const result = await updatePage(existing.id, title, contentHtml, version);
+      pageId = result.id;
+      console.log(`✅ 已更新同名页面: [${title}] (id=${pageId}, v${version + 1})`);
     } else {
       // 无同名页面 → 创建新页面
       const result = await createPage(spaceKey, parentPageId, title, contentHtml);
@@ -217,7 +241,7 @@ async function uploadFile(filePath, parentPageId, options = {}) {
           continue;
         }
         try {
-          await uploadAttachment(pageId, img.absolutePath, img.filename);
+          await api.uploadAttachment(pageId, img.absolutePath, img.filename);
           uploaded++;
           console.log(`    ✅ ${img.filename}`);
         } catch (e) {
@@ -237,7 +261,7 @@ async function uploadFile(filePath, parentPageId, options = {}) {
       const tmpPath = path.join(os.tmpdir(), `kb_upload_${filename}`);
       try {
         fs.writeFileSync(tmpPath, data);
-        await uploadAttachment(pageId, tmpPath, filename);
+        await api.uploadAttachment(pageId, tmpPath, filename);
         console.log(`    ✅ ${filename}`);
       } catch (e) {
         console.log(`    ⚠️ ${filename} 上传失败: ${e.message}`);
@@ -305,7 +329,7 @@ async function uploadFile(filePath, parentPageId, options = {}) {
 async function getExistingAttachmentNames(pageId) {
   const names = new Set();
   try {
-    const data = await apiGet(`/rest/api/content/${pageId}/child/attachment?limit=200`);
+    const data = await api.apiGet(`/rest/api/content/${pageId}/child/attachment?limit=200`);
     for (const a of (data.results || [])) {
       names.add(a.title);
     }
@@ -361,14 +385,25 @@ function writeBackFrontmatter(filePath, pageId, spaceKey, preUpdatedContent = nu
     metadata.spaceKey = spaceKey || metadata.spaceKey || "";
     metadata.lastModified = formatDateTime(new Date().toISOString());
 
-    // 只保留有用的字段
-    const lines = [
-      "---",
-      `pageId: "${metadata.pageId}"`,
-      `spaceKey: "${metadata.spaceKey}"`,
-      `lastModified: "${metadata.lastModified}"`,
-      "---",
+    const orderedKeys = [
+      "pageId",
+      "spaceKey",
+      "lastModified",
+      ...Object.keys(metadata).filter(
+        (key) => !["pageId", "spaceKey", "lastModified"].includes(key)
+      ),
     ];
+    const lines = ["---"];
+    for (const key of orderedKeys) {
+      if (!(key in metadata)) continue;
+      const value = metadata[key];
+      if (value === undefined || value === null) continue;
+      const serialized = String(value)
+        .replace(/\\/g, "\\\\")
+        .replace(/"/g, '\\"');
+      lines.push(`${key}: "${serialized}"`);
+    }
+    lines.push("---");
 
     const newContent = lines.join("\n") + "\n" + body;
     fs.writeFileSync(filePath, newContent, "utf-8");
@@ -380,4 +415,9 @@ function writeBackFrontmatter(filePath, pageId, spaceKey, preUpdatedContent = nu
 
 module.exports = {
   uploadFile,
+  __private: {
+    findChildPage,
+    writeBackFrontmatter,
+    isNotFoundError,
+  },
 };

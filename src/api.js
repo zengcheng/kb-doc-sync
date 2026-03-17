@@ -7,19 +7,90 @@ const fs = require("fs");
 const path = require("path");
 const { getBaseUrl, getAuthHeaders, browserLogin } = require("./auth");
 
+const REQUEST_TIMEOUT_MS = 30000;
+const RETRY_DELAY_MS = 1200;
+const MAX_TRANSIENT_RETRIES = 3;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function buildHeaders(extraHeaders = {}) {
+  return {
+    Accept: "*/*",
+    "User-Agent": "kb-doc-sync/2.0",
+    Connection: "keep-alive",
+    ...getAuthHeaders(),
+    ...extraHeaders,
+  };
+}
+
+function normalizeRequestError(err) {
+  if (!err) {
+    return new Error("unknown error");
+  }
+
+  if (err.message === "socket hang up" && !err.code) {
+    err.code = "ECONNRESET";
+  }
+
+  return err;
+}
+
+function isTransientError(err) {
+  const message = err && err.message ? err.message.toLowerCase() : "";
+  return [
+    "timeout",
+    "socket hang up",
+    "econnreset",
+    "econnrefused",
+    "etimedout",
+    "ehostunreach",
+    "enetdown",
+    "enetunreach",
+    "temporary failure",
+  ].some((keyword) => message.includes(keyword)) || [
+    "ECONNRESET",
+    "ECONNREFUSED",
+    "ETIMEDOUT",
+    "EHOSTUNREACH",
+    "ENETDOWN",
+    "ENETUNREACH",
+  ].includes(err && err.code);
+}
+
+async function withRetry(label, fn) {
+  let lastError;
+  for (let attempt = 1; attempt <= MAX_TRANSIENT_RETRIES; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = normalizeRequestError(err);
+      if (!isTransientError(lastError) || attempt === MAX_TRANSIENT_RETRIES) {
+        throw lastError;
+      }
+      console.warn(
+        `⚠️ ${label} 失败（第 ${attempt}/${MAX_TRANSIENT_RETRIES} 次）: ${lastError.message}，${RETRY_DELAY_MS}ms 后重试...`
+      );
+      await sleep(RETRY_DELAY_MS * attempt);
+    }
+  }
+  throw lastError;
+}
+
 /**
  * 用 Node.js 原生 HTTP 发起请求，返回 Buffer
  */
 function httpGet(url, redirectCount = 0) {
   const baseUrl = getBaseUrl();
-  return new Promise((resolve, reject) => {
+  return withRetry(`GET ${url}`, () => new Promise((resolve, reject) => {
     if (redirectCount > 5) {
       return reject(new Error("Too many redirects"));
     }
     const fullUrl = url.startsWith("http") ? url : `${baseUrl}${url}`;
     const parsedUrl = new URL(fullUrl);
     const mod = parsedUrl.protocol === "https:" ? https : http;
-    const headers = getAuthHeaders();
+    const headers = buildHeaders();
     const req = mod.get(fullUrl, { headers }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume();
@@ -36,14 +107,13 @@ function httpGet(url, redirectCount = 0) {
       const chunks = [];
       res.on("data", (chunk) => chunks.push(chunk));
       res.on("end", () => resolve(Buffer.concat(chunks)));
-      res.on("error", reject);
+      res.on("error", (err) => reject(normalizeRequestError(err)));
     });
-    req.on("error", reject);
-    req.setTimeout(30000, () => {
-      req.destroy();
-      reject(new Error("timeout"));
+    req.on("error", (err) => reject(normalizeRequestError(err)));
+    req.setTimeout(REQUEST_TIMEOUT_MS, () => {
+      req.destroy(new Error("timeout"));
     });
-  });
+  }));
 }
 
 /**
@@ -51,12 +121,11 @@ function httpGet(url, redirectCount = 0) {
  */
 function httpRequest(url, method, body, extraHeaders = {}) {
   const baseUrl = getBaseUrl();
-  return new Promise((resolve, reject) => {
+  return withRetry(`${method.toUpperCase()} ${url}`, () => new Promise((resolve, reject) => {
     const fullUrl = url.startsWith("http") ? url : `${baseUrl}${url}`;
     const parsedUrl = new URL(fullUrl);
     const mod = parsedUrl.protocol === "https:" ? https : http;
-    const authHeaders = getAuthHeaders();
-    const headers = { ...authHeaders, ...extraHeaders };
+    const headers = buildHeaders(extraHeaders);
 
     const options = {
       hostname: parsedUrl.hostname,
@@ -77,20 +146,19 @@ function httpRequest(url, method, body, extraHeaders = {}) {
         }
         resolve(buf);
       });
-      res.on("error", reject);
+      res.on("error", (err) => reject(normalizeRequestError(err)));
     });
 
-    req.on("error", reject);
-    req.setTimeout(30000, () => {
-      req.destroy();
-      reject(new Error("timeout"));
+    req.on("error", (err) => reject(normalizeRequestError(err)));
+    req.setTimeout(REQUEST_TIMEOUT_MS, () => {
+      req.destroy(new Error("timeout"));
     });
 
     if (body) {
       req.write(body);
     }
     req.end();
-  });
+  }));
 }
 
 /**
@@ -98,11 +166,10 @@ function httpRequest(url, method, body, extraHeaders = {}) {
  */
 function httpUploadMultipart(url, filePath, filename) {
   const baseUrl = getBaseUrl();
-  return new Promise((resolve, reject) => {
+  return withRetry(`UPLOAD ${filename}`, () => new Promise((resolve, reject) => {
     const fullUrl = url.startsWith("http") ? url : `${baseUrl}${url}`;
     const parsedUrl = new URL(fullUrl);
     const mod = parsedUrl.protocol === "https:" ? https : http;
-    const authHeaders = getAuthHeaders();
 
     const boundary = `----FormBoundary${Date.now()}`;
     const fileData = fs.readFileSync(filePath);
@@ -131,12 +198,11 @@ function httpUploadMultipart(url, filePath, filename) {
       port: parsedUrl.port,
       path: parsedUrl.pathname + parsedUrl.search,
       method: "POST",
-      headers: {
-        ...authHeaders,
+      headers: buildHeaders({
         "X-Atlassian-Token": "nocheck",
         "Content-Type": `multipart/form-data; boundary=${boundary}`,
         "Content-Length": bodyBuf.length,
-      },
+      }),
     };
 
     const req = mod.request(options, (res) => {
@@ -154,18 +220,17 @@ function httpUploadMultipart(url, filePath, filename) {
           resolve({});
         }
       });
-      res.on("error", reject);
+      res.on("error", (err) => reject(normalizeRequestError(err)));
     });
 
-    req.on("error", reject);
-    req.setTimeout(30000, () => {
-      req.destroy();
-      reject(new Error("timeout"));
+    req.on("error", (err) => reject(normalizeRequestError(err)));
+    req.setTimeout(REQUEST_TIMEOUT_MS, () => {
+      req.destroy(new Error("timeout"));
     });
 
     req.write(bodyBuf);
     req.end();
-  });
+  }));
 }
 
 /**

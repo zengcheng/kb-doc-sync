@@ -10,6 +10,7 @@
     "start": "node cli.js",
     "pull": "node cli.js pull",
     "push": "node cli.js push",
+    "test": "node tests/review-fixes.test.js && node tests/cli-base-url.test.js",
     "postinstall": "npx playwright install chromium"
   },
   "keywords": ["confluence", "markdown", "docs", "sync", "upload", "extract"],

@@ -9,7 +9,7 @@
  */
 const fs = require("fs");
 const path = require("path");
-const { askQuestion } = require("./src/utils");
+const { askQuestion, parseFrontmatter } = require("./src/utils");
 const { getBaseUrl, setBaseUrl, ensureLogin, loadCookies, resetAuth } = require("./src/auth");
 const { testCookieValid } = require("./src/api");
 const { extractPage, parseConfluenceUrl, resolvePageId } = require("./src/extract");
@@ -39,7 +39,7 @@ Push 命令：
 Push 选项：
   --parent-page-id <id>   父页面 ID（创建新页面时必填）
   --update                同名页面已存在时更新内容
-  --base-url <url>        KB 地址，默认 https://kb.cvte.com
+  --base-url <url>        KB 地址，例如 https://wiki.example.com
 
 通用选项：
   --help, -h              显示帮助信息
@@ -73,6 +73,33 @@ function parsePushArgs(args) {
   }
 
   return result;
+}
+
+/**
+ * 从待上传的 Markdown 文件 frontmatter 中推断 baseUrl
+ */
+function inferBaseUrlFromFiles(files) {
+  const baseUrls = new Set();
+
+  for (const file of files) {
+    if (!fs.existsSync(file)) continue;
+    try {
+      const content = fs.readFileSync(file, "utf-8");
+      const { metadata } = parseFrontmatter(content);
+      const sourceUrl = metadata.sourceUrl;
+      if (!sourceUrl) continue;
+      const parsed = new URL(sourceUrl);
+      baseUrls.add(parsed.origin);
+    } catch (_) {
+      // 忽略读取失败或非法 URL
+    }
+  }
+
+  if (baseUrls.size > 1) {
+    throw new Error("待上传文件包含多个不同的 KB 站点，请通过 --base-url 显式指定目标地址");
+  }
+
+  return baseUrls.size === 1 ? [...baseUrls][0] : null;
 }
 
 /**
@@ -145,7 +172,15 @@ async function handlePush(pushArgs) {
   if (pushArgs.baseUrl) {
     setBaseUrl(pushArgs.baseUrl);
   } else if (!getBaseUrl()) {
-    setBaseUrl("https://kb.cvte.com");
+    const inferredBaseUrl = inferBaseUrlFromFiles(pushArgs.files);
+    if (inferredBaseUrl) {
+      setBaseUrl(inferredBaseUrl);
+      console.log(`🔗 已从文档 frontmatter 推断目标站点: ${inferredBaseUrl}`);
+    } else {
+      console.log("❌ 缺少 KB 地址");
+      console.log("   已有文档请确保 frontmatter 中包含 sourceUrl；新文档请通过 --base-url <url> 指定，例如: https://wiki.example.com");
+      return;
+    }
   }
 
   // 确保登录

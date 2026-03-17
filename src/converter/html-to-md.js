@@ -8,15 +8,15 @@
 function htmlToMarkdown(html) {
   let md = html;
 
-  // 移除 CDATA、注释
-  md = md.replace(/<!\[CDATA\[[\s\S]*?\]\]>/g, "");
-  md = md.replace(/<!--[\s\S]*?-->/g, "");
-
-  // 处理 Confluence 宏容器 - 提取内容
+  // 先处理依赖 CDATA 的 Confluence code 宏，避免代码内容被提前清空
   md = md.replace(
     /<ac:structured-macro[^>]*ac:name="code"[^>]*>[\s\S]*?<ac:plain-text-body>\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*<\/ac:plain-text-body>[\s\S]*?<\/ac:structured-macro>/g,
     "\n```\n$1\n```\n\n"
   );
+
+  // 移除剩余 CDATA、注释
+  md = md.replace(/<!\[CDATA\[[\s\S]*?\]\]>/g, "");
+  md = md.replace(/<!--[\s\S]*?-->/g, "");
 
   // 处理 draw.io 宏
   md = md.replace(
